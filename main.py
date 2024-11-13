@@ -47,11 +47,14 @@ tokenized_dataset = dataset.map(tokenize_function, batched=True)
 training_args = TrainingArguments(
     output_dir="./results",
     evaluation_strategy="epoch",
-    learning_rate=1e-5,
-    per_device_train_batch_size=1,
-    per_device_eval_batch_size=1,
-    num_train_epochs=2,
-    weight_decay=0.01,
+    learning_rate=2e-4,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
+    num_train_epochs=10,
+    weight_decay=0.001,
+    warmup_ratio=0.03,
+    group_by_length=true,
+    lr_scheduler_type = "cosine",
     logging_dir="./logs",  # For TensorBoard
     logging_steps=10,      # Log every 10 steps
 )
