@@ -13,9 +13,14 @@ from peft import LoraConfig
 from trl import SFTTrainer
 import pandas as pd
 import glob
+from huggingface_hub import whoami
 
 # Ensure the Hugging Face token is securely handled
 HUGGINGFACE_TOKEN = os.getenv("HF_AUTH_TOKEN", "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")
+
+# Verify token validity
+print("Checking Hugging Face token details:")
+print(whoami(HUGGINGFACE_TOKEN))
 
 # Path to dataset
 data_path = os.getenv("DATA_PATH", "/home/datpham/datpham/llm-for-law/datasets")
@@ -49,8 +54,8 @@ print(combined_df[['text']].head())
 dataset = Dataset.from_pandas(combined_df[['text']])
 
 # Model and training configuration
-model_id = "vinai/PhoGPT-4B-Chat"
-output_dir = os.getenv("OUTPUT_DIR", "/home/datpham/datpham/llm-for-law/output")
+model_id = "NousResearch/Hermes-3-Llama-3.1-8B"  # Replace with another model if access is denied
+output_dir = os.getenv("OUTPUT_DIR", "/home/datpham/datpham/llm-for-law/output/llama3")
 fine_tuned_model_dir = os.path.join(output_dir, "SaveTrained")
 
 lora_r = 64
@@ -71,22 +76,28 @@ bnb_config = BitsAndBytesConfig(
 
 device_map = {"": 0}
 
-# Load model and tokenizer
-model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    quantization_config=bnb_config,
-    device_map=device_map,
-    token=HUGGINGFACE_TOKEN
-)
-model.config.use_cache = False
+# Load model and tokenizer with error handling
+try:
+    print(f"Attempting to load model: {model_id}")
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        quantization_config=bnb_config,
+        device_map=device_map,
+        token=HUGGINGFACE_TOKEN
+    )
+    model.config.use_cache = False
 
-tokenizer = AutoTokenizer.from_pretrained(
-    model_id,
-    token=HUGGINGFACE_TOKEN,  # Replaced use_auth_token with token
-    trust_remote_code=True
-)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right"
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_id,
+        token=HUGGINGFACE_TOKEN,  # Replaced use_auth_token with token
+        trust_remote_code=True
+    )
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "right"
+
+except OSError as e:
+    print(f"Error loading model {model_id}. Check repository access or use another model.")
+    raise e
 
 # Configure LoRA
 peft_config = LoraConfig(
@@ -101,7 +112,7 @@ peft_config = LoraConfig(
 training_arguments = TrainingArguments(
     output_dir=output_dir,
     num_train_epochs=1,
-    per_device_train_batch_size=8,
+    per_device_train_batch_size=4,
     gradient_accumulation_steps=1,
     optim="paged_adamw_32bit",
     save_steps=0,
